@@ -1,0 +1,171 @@
+FINISH
+/CLEAR,START
+/VUP , ALL , Z
+/VIEW , ALL , 1 , 1 , 1
+!/DSCALE,5000
+/CONFIG,RESUPREC,0
+*DIM,GTE,ARRAY,12
+*DIM,GTI,ARRAY,12
+! This is sintering code for GE for the sintering of the cube model
+!
+/PREP7
+    !
+    ! Create the block and mesh it 8 elements of first order
+    !
+    blocksize=2
+    BLOCK , 0 , blocksize , 0 , blocksize , 0 , blocksize
+    SAVE,'cube_geometry','db'
+    ET,1,SOLID185 ! DEFINE THE ELEMENT TYPE
+    TYPE,1 ! SET THE ELEMENT TYPE
+    !VSEL,S,,1
+    VATT,1,10
+    DESIZE,2,2,2
+    SMRT,OFF
+    VMESH,ALL
+    SAVE, 'cube_mesh','db'
+    !
+    ! Create components so you can apply bcs to them
+    !
+    ! 4. Material
+    ! MP,EX,1,240E9 		            ! Young's modulus
+    ! MP,DENS,1,8000 	                ! Density
+    ! MP,PRXY,1,0.3	                    ! Poisson's coefficient
+    ! MAT,1                             ! USER MATERIAL
+    TB,USER,1,12,1,NONLINEAR
+    TB,STATE,1,,93
+    EMODIF, ALL, MAT, 1	                ! assign material 1 to all elements
+    ALLS
+    NSEL,ALL
+    CM,all_nodes,NODE
+    ALLS
+    ! D , Node , Lab , VALUE 
+    NSEL,S,NODE,,1
+    CM,xyz_fixed_nodes,NODE
+    D,xyz_fixed_nodes,UX,0
+    D,xyz_fixed_nodes,UZ,0
+    ALLS
+    !
+    NSEL,S,NODE,,4
+    CM,xyz_fixed_nodes,NODE
+    D,xyz_fixed_nodes,UX,0
+    D,xyz_fixed_nodes,UY,0
+    D,xyz_fixed_nodes,UZ,0
+    ALLS
+    !
+    NSEL,S,LOC,Z,-0.001,0.001
+    CM,bottom_fixed_nodes,NODE
+    D,bottom_fixed_nodes,UZ,0     
+
+    NSEL,ALL
+FINISH
+!
+
+/SOLU                                   ! Solution processor 
+    PRED,OFF
+    AUTOTS,OFF                           ! TOGGLE AUTO TIME STEPPING
+    EQSLV,PCG                           ! SELECT THE TYPE OF SOLVER: SPARSE, JCG, ICCG, QMR, PCG
+    ANTYPE,STATIC,NEW
+    NLGEOM,ON                           ! switch on non linear geometry 
+    !
+    !NSEL,S,LOC,Z,1.999,2.001
+    !CM,top_nodes,NODE
+    !NSEL,ALL
+    !ACEL,,,-9.81   ! ACCELATION DUE TO GRAVITY
+    !F,top_nodes,FZ,-1000
+    !
+    !
+    GTE(1)=0.000,19.50500,196.3290,190.3380,292.22600,291.7620,431.7000, 430.7000,607.0000,620.5000,1390.000,1390.504 ! TEMPERATURE values in column 1
+    GTI(1)=0.000,52.26000,221.9800,3984.860,6876.060,14208.00,18864.00,25476.00,31836.00,34764.00,44802.00,65820  ! Corresponding time values in column 0
+
+    !GTE(1)=0.000,19.50500,196.3290,190.3380,292.22600,291.7620,431.7000, 430.7000,607.0000,620.5000 ! TEMPERATURE values in column 1
+    !GTI(1)=0.000,52.26000,221.9800,3984.860,6876.060,14208.00,18864.00,25476.00,31836.00,34764.00 ! Corresponding time values in column 0
+
+
+    ! GTE(1)=430.7,607,620.5,1390,1390.504 ! TEMPERATURE values in column 1
+    ! GTI(1)=25476.00,31836.00,34764.00,44802.00,65820  ! Corresponding time values in column 0
+
+
+    !
+
+    NSEL,ALL                            ! Activate all nodes
+
+    CNVTOL,U,1e-2,1e-2,0,1e-2           ! Displacement convergence tolerance using L2 norm
+    CNVTOL,F,1e-2,1e-2,0,1e-2           ! Force convergence tolerance using L2 norm
+
+    *DO,TM,1,10                         ! Do for TM from TM_START to TM_END in
+        DELTIM,1000,1000,4000,OFF                            
+        TIME,GTI(TM)                    ! Time value 
+        BF,all_nodes,TEMP,GTE(TM)       ! Time-varying temperature 
+        !NSUBST,10,100,1   
+        OUTRES,ALL,ALL            
+        NSEL,ALL                        ! Activate all nodes
+        SOLVE                           ! Initiate solution calculations
+    *ENDDO
+    !CNVTOL,STAT                         ! LIST THE CONVERGENCE TOLERANCE VALUES
+    
+
+   *DO,TM,11,12                       ! Do for TM from TM_START to TM_END in
+        DELTIM,1,0.1,10,OFF                            
+        TIME,GTI(TM)                    ! Time value 
+        BF,all_nodes,TEMP,GTE(TM)       ! Time-varying temperature 
+        !NSUBST,10000,10000,1   
+        OUTRES,ALL,ALL            
+        NSEL,ALL                        ! Activate all nodes
+        SOLVE                           ! Initiate solution calculations
+    *ENDDO
+  
+
+FINISH
+
+! /SOLU
+!     OUTRES,ALL,ALL  
+!     CNVTOL,STAT                         ! LIST THE CONVERGENCE TOLERANCE VALUES
+! FINISH
+
+! /PREP7
+! MPREAD,experimental_strain,csv
+! FINISH
+
+! /PREP7
+! MPWRITE,some_data,,LIB,1
+! FINISH
+
+! /PREP7
+! *DIM,SSS,TABLE,659,2
+! *TREAD,SSS,experimental_strain,csv
+! MPWRITE,some_data,,LIB,1
+! *LIST,experimental_strain,csv
+! FINISH
+
+
+! /PREP7
+! *DIM,exptime,ARRAY,659
+! *DIM,expstrain,ARRAY,659
+! *TREAD,exptime,exptime,csv
+! *TREAD,expstrain,expstrain,csv
+
+! *LIST,expstrain,csv
+! *LIST,exptime,csv
+! FINISH
+
+! /POST26
+! PRVAR,SSS
+! FINISH
+
+
+/POST1                                  ! Fringe plots post processor 
+    INRES,ALL
+    SET,LIST
+    SET,FIRST,,,,,,,5,
+    !PLNSOL,S,Z
+    !PLNSOL,U,Z
+    !PLDISP,1
+    !PLVECT,U
+    !PRNSOL,U
+FINISH
+
+/POST26                                 ! Time history plots post processor
+    NSOL,2,27,U,Z,UZ_NODE15
+    PRVAR,2
+    PLVAR,2
+FINISH
